@@ -1,0 +1,53 @@
+.git
+.github
+
+# Local configuration and credentials
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+credentials*.json
+secrets/
+.npmrc
+.pypirc
+
+# Python environments, caches, and coverage
+.venv/
+venv/
+env/
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Development-only and generated output
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+build/
+dist/
+out/
+target/
+tmp/
+*.log
+*.pid
+tests/
+pyproject.toml
+uv.lock
+requirements/addon.in
+README.md
+SECURITY.md
+scripts/
+deploy.sh
+
+# Only checked, intentionally bundled plugin packages enter the context.
+*.difypkg
+!overlay/plugins/*.difypkg

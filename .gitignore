@@ -1,0 +1,50 @@
+/.git_backup*/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+credentials*.json
+secrets/
+.npmrc
+.pypirc
+
+# Python environments, caches, and coverage
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Build output and logs
+build/
+dist/
+out/
+target/
+tmp/
+*.log
+*.pid
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Plugin packages are ignored unless intentionally bundled here.
+*.difypkg
+!overlay/plugins/*.difypkg

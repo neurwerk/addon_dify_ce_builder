@@ -1,0 +1,60 @@
+# Validation only: deploy.sh, image builds, and image publication are operator-only.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate only (no image publication)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - name: Install locked test tools
+        run: uv sync --locked --dev
+
+      - name: Lint and format
+        run: |
+          uv run ruff check overlay/scripts scripts tests
+          uv run ruff format --check overlay/scripts scripts tests
+
+      - name: Test
+        run: uv run pytest
+
+      - name: Verify addon dependency lock
+        run: |
+          uv pip compile requirements/addon.in \
+            --output-file "${RUNNER_TEMP}/addon.txt" \
+            --python-version 3.12 \
+            --universal \
+            --generate-hashes \
+            --no-deps \
+            --only-binary :all: \
+            --no-annotate \
+            --custom-compile-command "uv pip compile requirements/addon.in --output-file requirements/addon.txt --python-version 3.12 --universal --generate-hashes --no-deps --only-binary :all: --no-annotate"
+          diff -u requirements/addon.txt "${RUNNER_TEMP}/addon.txt"
+          uv pip install \
+            --target "${RUNNER_TEMP}/addon" \
+            --no-deps \
+            --only-binary :all: \
+            --require-hashes \
+            --requirements requirements/addon.txt
+
+      - name: Check shell scripts
+        run: shellcheck deploy.sh scripts/verify-sources.sh
+
+      - name: Verify source provenance and checksums
+        run: ./scripts/verify-sources.sh
