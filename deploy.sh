@@ -207,15 +207,15 @@ if ${push_images}; then
     printf 'ERROR: GHCR username and token are required.\n' >&2
     exit 1
   fi
-  printf 'Logging Docker in to ghcr.io with the preflight credentials ...\n'
-  if ! printf '%s' "${ghcr_token}" \
-    | docker login ghcr.io --username "${ghcr_username}" --password-stdin; then
-    printf 'ERROR: Docker login to ghcr.io failed.\n' >&2
-    exit 1
-  fi
   printf 'Preflighting every selected GHCR destination ...\n'
   GHCR_USERNAME="${ghcr_username}" GHCR_TOKEN="${ghcr_token}" \
     python3 scripts/ghcr_preflight.py --tag "${VERSION}" "${selected_repositories[@]}"
+  printf 'Logging Docker in to ghcr.io with the verified preflight credentials ...\n'
+  if ! printf '%s' "${ghcr_token}" \
+    | docker login ghcr.io --username "${ghcr_username}" --password-stdin; then
+    printf 'ERROR: Docker login to ghcr.io failed after registry preflight passed.\n' >&2
+    exit 1
+  fi
   unset ghcr_token
 fi
 
