@@ -1,3 +1,5 @@
+# check=skip=InvalidDefaultArgInFrom
+# Base image arguments intentionally require digest-pinned values from deploy.sh.
 # =============================================================================
 # SPDX-License-Identifier: MIT
 # addon-dify-ce-builder-web - Dify CE Web + Keycloak SSO login button
@@ -24,7 +26,7 @@ RUN set -eu; \
   curl --fail --location --silent --show-error \
     "https://github.com/langgenius/dify/archive/refs/tags/${dify_version}.tar.gz" \
     --output dify.tar.gz; \
-  printf '%s  %s\n' "${source_sha256}" dify.tar.gz | sha256sum --check; \
+  printf '%s  %s\n' "${source_sha256}" dify.tar.gz | sha256sum -c; \
   tar -xzf dify.tar.gz; \
   mv "dify-${dify_version}" /src
 

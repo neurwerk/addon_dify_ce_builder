@@ -120,6 +120,10 @@ A failure after the first package is published can leave a partial release. In
 that case, preserve the published immutable tag and rerun only the missing
 package from the same clean source commit and version.
 
+If recovery requires a source change, do not complete the partial version from
+a different commit. Preserve its published tags, choose a new overlay version,
+and publish every required image from the corrected canonical commit.
+
 Tag absence checks also cannot reserve a tag. Exclusive operator coordination
 is still required to prevent another publisher racing between preflight and
 push; GHCR does not expose a conditional create-only tag operation.

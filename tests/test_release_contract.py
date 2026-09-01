@@ -21,7 +21,8 @@ def test_web_build_verifies_the_authoritative_source_archive():
     dockerfile = _read("docker/web.Dockerfile")
 
     assert "COPY DIFY_VERSION DIFY_SOURCE_REVISION DIFY_SOURCE_SHA256" in dockerfile
-    assert "sha256sum --check" in dockerfile
+    assert "sha256sum -c" in dockerfile
+    assert "sha256sum --check" not in dockerfile
     assert "ARG DIFY_VERSION=" not in dockerfile
 
 
@@ -92,6 +93,9 @@ def test_web_base_images_are_index_digest_pinned_and_labeled():
     assert 'org.opencontainers.image.base.digest="${NODE_IMAGE_DIGEST}"' in dockerfile
     assert 'com.neurwerk.dify.web-source-base.name="${ALPINE_IMAGE_NAME}"' in dockerfile
     assert 'com.neurwerk.dify.web-source-base.digest="${ALPINE_IMAGE_DIGEST}"' in dockerfile
+    assert dockerfile.startswith("# check=skip=InvalidDefaultArgInFrom\n")
+    assert "ARG NODE_IMAGE=" not in dockerfile
+    assert "ARG ALPINE_IMAGE=" not in dockerfile
 
 
 def test_api_base_and_addon_install_are_reproducibly_pinned():
@@ -100,6 +104,8 @@ def test_api_base_and_addon_install_are_reproducibly_pinned():
     requirements = _read("requirements/addon.txt")
 
     assert "@${DIFY_API_IMAGE_DIGEST}" in deploy_script
+    assert dockerfile.startswith("# check=skip=InvalidDefaultArgInFrom\n")
+    assert "ARG BASE_IMAGE=" not in dockerfile
     assert "--require-hashes" in dockerfile
     assert "--only-binary=:all:" in dockerfile
     assert "--no-deps" in dockerfile
