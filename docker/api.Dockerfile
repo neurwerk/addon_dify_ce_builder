@@ -1,3 +1,5 @@
+# check=skip=InvalidDefaultArgInFrom
+# Base image arguments intentionally require digest-pinned values from deploy.sh.
 # =============================================================================
 # SPDX-License-Identifier: MIT
 # addon-dify-ce-builder - Dify CE API + Keycloak OIDC auth
