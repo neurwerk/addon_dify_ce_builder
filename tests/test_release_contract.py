@@ -68,8 +68,8 @@ def test_deploy_requires_clean_source_and_never_publishes_latest():
     assert "git fetch --quiet --no-tags origin" in deploy_script
     assert '[[ "${BUILDER_REVISION}" != "${canonical_revision}" ]]' in deploy_script
     assert "git merge-base --is-ancestor" not in deploy_script
-    assert deploy_script.index("docker login ghcr.io") < deploy_script.index(
-        "scripts/ghcr_preflight.py"
+    assert deploy_script.index("scripts/ghcr_preflight.py") < deploy_script.index(
+        "docker login ghcr.io"
     )
     assert 'docker login ghcr.io --username "${ghcr_username}" --password-stdin' in deploy_script
     assert 'GHCR_USERNAME="${ghcr_username}" GHCR_TOKEN="${ghcr_token}"' in deploy_script

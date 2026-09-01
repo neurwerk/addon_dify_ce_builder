@@ -70,9 +70,9 @@ shellcheck deploy.sh scripts/verify-sources.sh
 ## Build And Publish
 
 Image construction and publication are intentionally user-operated. You need a
-clean Git checkout, Docker with Buildx, Python 3, and an authenticated GHCR
-session. Choose an explicit immutable overlay version beginning with the
-upstream version, for example:
+clean Git checkout, Docker with Buildx, Python 3, and GHCR credentials with
+`write:packages`. Choose an explicit immutable overlay version beginning with
+the upstream version, for example:
 
 ```bash
 ./deploy.sh 1.15.0-kc-v15
@@ -87,22 +87,26 @@ The script never creates or publishes `latest`. Before a push it:
 
 1. fetches canonical `origin/main` and requires the clean `HEAD` commit to be
    exactly equal to it;
-2. logs Docker in to `ghcr.io` with the exact prompted or environment-provided
-   credentials that the preflight uses;
-3. obtains authenticated GHCR `pull,push` tokens for every selected package;
-4. opens and cancels a temporary blob-upload session for every package to prove
-   push permission;
-5. requires every final tag lookup to return an explicit absent result.
+2. obtains authenticated GHCR `pull,push` tokens for every selected package;
+3. opens a temporary empty blob-upload session for every package and requires
+   HTTP 202 to prove push permission;
+4. attempts to cancel each empty session, but reports cleanup failure as a
+   warning because OCI defines cancellation as best-effort and GHCR expires
+   unfinished uploads after 10 minutes;
+5. requires every final tag lookup to return an explicit absent result; and
+6. logs Docker in to `ghcr.io` with the same verified credentials.
 
 Set `GHCR_USERNAME` and `GHCR_TOKEN`, or enter them at the private prompts. The
 token needs `write:packages`. The script passes it to `docker login` through
 stdin and does not print it, so Buildx and the preflight use the same account.
-Docker login updates the `ghcr.io` entry in the configured Docker credential
-store (or Docker config), can replace a previously stored GHCR login, and
-persists after the script exits. Run `docker logout ghcr.io` afterward if the
-credential should not remain stored. Any network, authentication, authorization,
-cleanup, or registry-response ambiguity aborts before the first build. Existing
-final tags are never reused.
+Docker login runs only after every destination passes preflight. It updates the
+`ghcr.io` entry in the configured Docker credential store (or Docker config),
+can replace a previously stored GHCR login, and persists after the script exits.
+Run `docker logout ghcr.io` afterward if the credential should not remain
+stored. Network, authentication, authorization, and tag-response ambiguity
+abort before the first build. Cleanup warnings do not block publication because
+the accepted upload initiation already proved push access. Existing final tags
+are never reused.
 
 On success the script reports each exact tag and resulting content digest;
 retain those digests with the release record.

@@ -6,10 +6,18 @@ import pytest
 from scripts import ghcr_preflight
 
 
-def _response(status: int, body=None, *, location: str | None = None):
+def _response(
+    status: int,
+    body=None,
+    *,
+    location: str | None = None,
+    request_id: str | None = None,
+):
     headers = Message()
     if location is not None:
         headers["Location"] = location
+    if request_id is not None:
+        headers["X-GitHub-Request-Id"] = request_id
     encoded_body = b"" if body is None else json.dumps(body).encode()
     return ghcr_preflight.Response(status, headers, encoded_body)
 
@@ -75,15 +83,56 @@ def test_preflight_rejects_an_existing_immutable_tag():
         ghcr_preflight.preflight([repository], "1.15.0-kc-v15", "user", "token", responses)
 
 
+def test_preflight_warns_and_continues_when_upload_cleanup_is_unsupported(capsys):
+    repository = "neurwerk/addon-dify-ce-builder-api"
+    responses = Responses(
+        [
+            _token("token"),
+            _upload(repository),
+            _response(
+                405,
+                {"errors": [{"code": "UNSUPPORTED", "message": "operation is unsupported"}]},
+                request_id="ABC:123",
+            ),
+            _absent(),
+        ]
+    )
+
+    ghcr_preflight.preflight([repository], "1.15.0-kc-v15", "user", "token", responses)
+
+    captured = capsys.readouterr()
+    assert "WARNING upload cleanup for ghcr.io/neurwerk/addon-dify-ce-builder-api" in captured.err
+    assert "HTTP 405" in captured.err
+    assert "UNSUPPORTED: operation is unsupported" in captured.err
+    assert "GitHub request ID ABC:123" in captured.err
+    assert responses.requests[-1].get_method() == "GET"
+
+
+def test_preflight_reports_registry_error_details():
+    response = _response(
+        403,
+        {"errors": [{"code": "DENIED", "message": "requested access is denied"}]},
+        request_id="DEF:456",
+    )
+
+    with pytest.raises(
+        ghcr_preflight.PreflightError,
+        match=r"HTTP 403.*DENIED: requested access is denied.*GitHub request ID DEF:456",
+    ):
+        ghcr_preflight.preflight(
+            ["neurwerk/package"],
+            "1.15.0-kc-v15",
+            "user",
+            "token",
+            Responses([_token("token"), response]),
+        )
+
+
 @pytest.mark.parametrize(
     ("responses", "message"),
     [
         ([_response(401)], "credentials and push authorization are ambiguous"),
         ([_token("token"), _response(403)], "push authorization is not proven"),
-        (
-            [_token("token"), _upload("neurwerk/package"), _response(500)],
-            "upload-probe cleanup",
-        ),
         (
             [
                 _token("token"),
