@@ -60,6 +60,8 @@ def test_deploy_requires_clean_source_and_never_publishes_latest():
 
     assert "git status --porcelain" in deploy_script
     assert "containerimage.digest" in deploy_script
+    assert "${VERSION,,}" not in deploy_script
+    assert "tr '[:upper:]' '[:lower:]'" in deploy_script
     assert "Mutable latest tags are prohibited" in deploy_script
     assert ":latest" not in deploy_script
     assert 'VERSION="${1:-' not in deploy_script

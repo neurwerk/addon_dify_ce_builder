@@ -57,7 +57,7 @@ DIFY_SOURCE_REVISION="$(read_value DIFY_SOURCE_REVISION)"
 DIFY_SOURCE_SHA256="$(read_value DIFY_SOURCE_SHA256)"
 NODE_IMAGE_DIGEST="$(read_value NODE_IMAGE_DIGEST)"
 ALPINE_IMAGE_DIGEST="$(read_value ALPINE_IMAGE_DIGEST)"
-version_lower="${VERSION,,}"
+version_lower="$(printf '%s' "${VERSION}" | tr '[:upper:]' '[:lower:]')"
 
 if [[ ! "${VERSION}" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
   printf 'ERROR: Version is not a valid container tag.\n' >&2
