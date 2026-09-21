@@ -33,9 +33,9 @@ did not contain a root `NOTICE` file at this revision.
 - Node base OCI index digest:
   `sha256:8094c002d08262dba12645a3b4a15cd6cd627d30bc782f53229a2ec13ee22a00`
 - Alpine source-stage base:
-  `docker.io/library/alpine:3.21@sha256:48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d`
+  `docker.io/library/alpine:3.21@sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507`
 - Alpine base OCI index digest:
-  `sha256:48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d`
+  `sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507`
 
 The Node base supplies the Web build and final runtime. The separate Alpine
 base is used only to fetch and verify the pinned Dify source archive. Both tags
