@@ -49,19 +49,19 @@ export default function SsoRedirect() {
   return (
     <div className="flex flex-col items-center justify-center gap-4 p-8">
       <p className="text-sm text-gray-500">
-        {t('redirectingToSSO', { ns: 'login', seconds: countdown })}
+        {t($ => $.redirectingToSSO, { ns: 'login', seconds: countdown })}
       </p>
       <a
         href={oauthUrl}
         className="text-sm text-blue-600 hover:text-blue-800 underline"
       >
-        {t('redirectNow', { ns: 'login' })}
+        {t($ => $.redirectNow, { ns: 'login' })}
       </a>
       <a
         href={loginFormUrl}
         className="text-sm text-gray-400 hover:text-gray-600"
       >
-        {t('useLoginForm', { ns: 'login' })}
+        {t($ => $.useLoginForm, { ns: 'login' })}
       </a>
     </div>
   )

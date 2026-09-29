@@ -12,7 +12,8 @@ The canonical repository is
 ## What It Changes
 
 - Adds Keycloak OIDC authentication and sign-in UI integration.
-- Uses Dify's upstream PostgreSQL 18-compatible migrations and OAuth service.
+- Uses Dify's upstream PostgreSQL 18-compatible UUID migration and OAuth service;
+  retains the retry-safe concurrent-index migration.
 - Adds single-workspace model-provider bootstrap behavior.
 - Bundles a checksum-pinned, unmodified Dify OpenAI-compatible plugin package.
 

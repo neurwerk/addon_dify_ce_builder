@@ -35,6 +35,7 @@ USER root
 # Patch the pinned upstream service instead of replacing its changed modules.
 COPY overlay/api/neurwerk_sso.py /app/api/neurwerk_sso.py
 COPY overlay/api/neurwerk_settings.py /app/api/neurwerk_settings.py
+COPY overlay/api/migrations/versions/2025_06_06_1424-4474872b0ee6_workflow_draft_varaibles_add_node_execution_id.py /app/api/migrations/versions/2025_06_06_1424-4474872b0ee6_workflow_draft_varaibles_add_node_execution_id.py
 COPY overlay/scripts/patch_dify.py /tmp/patch_dify.py
 RUN python /tmp/patch_dify.py api /app/api && rm /tmp/patch_dify.py
 COPY overlay/scripts/ /app/api/scripts/
@@ -49,6 +50,7 @@ RUN chown -R dify:dify \
   /app/api/configs/app_config.py \
   /app/api/extensions/ext_application_services.py \
   /app/api/controllers/console/auth/oauth.py \
+  /app/api/migrations/versions/2025_06_06_1424-4474872b0ee6_workflow_draft_varaibles_add_node_execution_id.py \
   /app/api/scripts/ \
   /app/api/plugins-offline/
 

@@ -20,10 +20,10 @@ third-party works described here.
 - License: Dify Open Source License, based on Apache License 2.0 with additional
   conditions; see `LICENSES/Dify-LICENSE`
 
-The Dify-derived `overlay/api/neurwerk_sso.py` and `neurwerk_settings.py`, and
-files modified in the assembled upstream API and Web images, remain subject to
-the Dify Open Source License. The Web image is
-built from the source revision and archive identified above. The API image
+The Dify-derived `overlay/api/neurwerk_sso.py`, `neurwerk_settings.py`, the
+retry-safe concurrent-index migration, and the modified upstream API and Web
+files remain under the Dify Open Source License. The Web image is built from
+the source revision and archive identified above. The API image
 extends the independently digest-pinned upstream image identified above. Dify
 did not contain a root `NOTICE` file at this revision.
 

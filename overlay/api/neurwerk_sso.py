@@ -6,7 +6,6 @@
 import hmac
 import secrets
 import urllib.parse
-from types import MethodType
 
 import httpx
 import jwt
@@ -16,7 +15,11 @@ from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import delete, select
 
 from libs.oauth import OAuth, OAuthUserInfo
-from services.account_errors import OAuthProviderAuthorizationError, OAuthRegistrationError
+from services.account_errors import (
+    OAuthAccountNotFoundError,
+    OAuthProviderAuthorizationError,
+    OAuthRegistrationError,
+)
 from services.account_oauth_adapters import DifyOAuthProviderGateway
 from services.account_oauth_service import AccountOAuthService
 from services.entities.account_oauth_entities import OAuthCallbackCommand, OAuthIdentity
@@ -181,150 +184,187 @@ def _synchronize_workspace(account_id, roles, session_factory):
         db_session.commit()
 
 
-def configure_oauth(service: AccountOAuthService, session_factory):
-    """Extend upstream's OAuth service without replacing its locks or other providers."""
-    from extensions.ext_application_services import application_services
-    from libs.datetime_utils import naive_utc_now
-    from models.account import AccountIntegrate, AccountStatus, TenantAccountJoin
-    from services.account_service import AccountService
-    from services.account_errors import OAuthSeatsLimitExceededError
-    from services.errors.account import SeatsLimitExceededError
+class KeycloakProviderGateway(DifyOAuthProviderGateway):
+    def __init__(self, *, account_claims, session_factory):
+        super().__init__(provider_name="keycloak", client=KeycloakOAuth())
+        self._account_claims = account_claims
+        self._session_factory = session_factory
 
-    if not (_settings().KEYCLOAK_OIDC_ISSUER_URL and _settings().KEYCLOAK_OIDC_CLIENT_ID):
-        return service
+    def get_identity(self, code):
+        identity = super().get_identity(code)
+        if identity.email == _settings().AUTO_SETUP_ADMIN_EMAIL.lower():
+            raise OAuthProviderAuthorizationError("The break-glass owner cannot use Keycloak SSO")
+        if "dify-user" not in g.keycloak_roles:
+            self._revoke_workspace_access(identity)
+            raise OAuthProviderAuthorizationError("You are not authorized for Dify")
+        return identity
 
-    class Gateway(DifyOAuthProviderGateway):
-        def get_identity(self, code):
-            identity = super().get_identity(code)
-            if identity.email == _settings().AUTO_SETUP_ADMIN_EMAIL.lower():
-                raise OAuthProviderAuthorizationError(
-                    "The break-glass owner cannot use Keycloak SSO"
-                )
-            if "dify-user" not in g.keycloak_roles:
-                with session_factory() as db_session:
-                    integration = db_session.scalar(
-                        select(AccountIntegrate).where(
-                            AccountIntegrate.provider == "keycloak",
-                            AccountIntegrate.open_id == identity.id,
-                        )
+    def _revoke_workspace_access(self, identity):
+        """Use the same identity/account lock order as upstream's successful login."""
+        from models.account import AccountIntegrate, TenantAccountJoin
+        from services.account_service import AccountService
+
+        with self._account_claims.acquire(
+            provider="keycloak",
+            open_id=identity.id,
+            email=AccountOAuthService._identity_email_key(identity.email),
+        ) as identity_claim:
+            with self._session_factory() as db_session:
+                account_id = db_session.scalar(
+                    select(AccountIntegrate.account_id).where(
+                        AccountIntegrate.provider == "keycloak",
+                        AccountIntegrate.open_id == identity.id,
                     )
-                    if integration is not None:
-                        db_session.execute(
-                            delete(TenantAccountJoin).where(
-                                TenantAccountJoin.account_id == integration.account_id
-                            )
-                        )
-                        db_session.commit()
-                        application_services().accounts.authentication.logout(
-                            integration.account_id
-                        )
-                raise OAuthProviderAuthorizationError("You are not authorized for Dify")
-            return identity
+                )
+            if account_id is None:
+                return
+            with self._account_claims.acquire_account(account_id) as account_claim:
+                identity_claim.ensure_owned()
+                account_claim.ensure_owned()
+                with self._session_factory.begin() as db_session:
+                    db_session.execute(
+                        delete(TenantAccountJoin).where(TenantAccountJoin.account_id == account_id)
+                    )
+                AccountService.revoke_token_pair(account_id)
+                account_claim.ensure_owned()
+                identity_claim.ensure_owned()
 
-    service._providers["keycloak"] = Gateway(provider_name="keycloak", client=KeycloakOAuth())
-    original_resolve = service._resolve_account
-    original_complete = service.complete_authorization
-    original_register_policy = service._registration_policy
-    original_registration = service._registration
-    original_workspaces = service._workspaces
 
-    def resolve(self, provider, identity):
+class KeycloakOAuthPolicy:
+    def __init__(self, original):
+        self._original = original
+
+    def is_registration_allowed(self):
+        if hasattr(g, "keycloak_identity"):
+            return _settings().ALLOW_SSO_REGISTER
+        return self._original.is_registration_allowed()
+
+    def get_freeze_type(self, email):
+        return self._original.get_freeze_type(email)
+
+    def is_creation_allowed(self):
+        if hasattr(g, "keycloak_identity"):
+            return False
+        return self._original.is_creation_allowed()
+
+
+class KeycloakWorkspaceGateway:
+    def __init__(self, original, session_factory):
+        self._original = original
+        self._session_factory = session_factory
+
+    def create_owner_workspace(self, account_id):
+        return self._original.create_owner_workspace(account_id)
+
+    def try_join_default_workspace(self, account_id):
+        if hasattr(g, "keycloak_identity"):
+            _synchronize_workspace(account_id, g.keycloak_roles, self._session_factory)
+            return
+        return self._original.try_join_default_workspace(account_id)
+
+
+class KeycloakRegistrationGateway:
+    def __init__(self, original, session_factory):
+        self._original = original
+        self._session_factory = session_factory
+
+    def register(self, registration):
+        if not hasattr(g, "keycloak_identity"):
+            return self._original.register(registration)
+        if not _settings().ALLOW_SSO_REGISTER:
+            raise OAuthRegistrationError("SSO registration is disabled")
+
+        from libs.datetime_utils import naive_utc_now
+        from models.account import AccountStatus
+        from services.account_errors import OAuthSeatsLimitExceededError
+        from services.account_service import AccountService
+        from services.errors.account import SeatsLimitExceededError
+
+        with self._session_factory() as db_session:
+            try:
+                account = AccountService.create_account(
+                    email=registration.email,
+                    name=registration.name,
+                    interface_language=registration.language,
+                    password=None,
+                    is_setup=True,
+                    timezone=registration.timezone,
+                    ip_address=registration.ip_address,
+                    check_normalized_email=True,
+                    session=db_session,
+                )
+                account.status = AccountStatus.ACTIVE
+                account.initialized_at = naive_utc_now()
+                db_session.commit()
+            except SeatsLimitExceededError as exc:
+                db_session.rollback()
+                raise OAuthSeatsLimitExceededError from exc
+            except Exception as exc:
+                db_session.rollback()
+                raise OAuthRegistrationError("Keycloak registration failed") from exc
+            return account.id
+
+
+class KeycloakAccountOAuthService(AccountOAuthService):
+    def __init__(self, *, session_factory, **kwargs):
+        super().__init__(**kwargs)
+        self._keycloak_session_factory = session_factory
+
+    def complete_authorization(self, command: OAuthCallbackCommand):
+        if command.provider == "keycloak" and command.invite_token is not None:
+            raise OAuthRegistrationError("Keycloak invitations are not supported")
+        return super().complete_authorization(command)
+
+    def _resolve_account(self, provider, identity):
         if provider != "keycloak":
-            return original_resolve(provider, identity)
+            return super()._resolve_account(provider, identity)
         account_id = self._integrations.find_account_id(provider=provider, open_id=identity.id)
         email_account = self._accounts.find_by_email(identity.email)
         if account_id is None and email_account is not None:
             raise OAuthRegistrationError("This email is not linked to the Keycloak identity")
         if account_id is not None:
             account = self._accounts.get(account_id)
-            if email_account is not None and account is not None and email_account.id != account.id:
+            if account is None:
+                raise OAuthAccountNotFoundError
+            if email_account is not None and email_account.id != account.id:
                 raise OAuthRegistrationError(
                     "Keycloak subject and email identify different accounts"
                 )
             return account
         return None
 
-    def complete(self, command: OAuthCallbackCommand):
-        if command.provider != "keycloak":
-            return original_complete(command)
-        if command.invite_token:
-            raise OAuthRegistrationError("Keycloak invitations are not supported")
-        result = original_complete(command)
-        identity = g.keycloak_identity
-        account_id = self._integrations.find_account_id(provider="keycloak", open_id=identity.id)
-        if account_id is None:
-            raise OAuthRegistrationError("Keycloak account binding is missing")
-        _synchronize_workspace(account_id, g.keycloak_roles, session_factory)
-        return result
-
-    class Policy:
-        def is_registration_allowed(self):
-            if hasattr(g, "keycloak_identity"):
-                return _settings().ALLOW_SSO_REGISTER
-            return original_register_policy.is_registration_allowed()
-
-        def get_freeze_type(self, email):
-            return original_register_policy.get_freeze_type(email)
-
-        def is_creation_allowed(self):
-            if hasattr(g, "keycloak_identity"):
-                return False
-            return original_register_policy.is_creation_allowed()
-
-    class Workspaces:
-        def create_owner_workspace(self, account_id):
-            return original_workspaces.create_owner_workspace(account_id)
-
-        def try_join_default_workspace(self, account_id):
-            if hasattr(g, "keycloak_identity"):
-                _synchronize_workspace(account_id, g.keycloak_roles, session_factory)
-                return
-            return original_workspaces.try_join_default_workspace(account_id)
-
-    class Registration:
-        def register(self, registration):
-            if not hasattr(g, "keycloak_identity"):
-                return original_registration.register(registration)
-            if not _settings().ALLOW_SSO_REGISTER:
-                raise OAuthRegistrationError("SSO registration is disabled")
-            with session_factory() as db_session:
-                try:
-                    account = AccountService.create_account(
-                        email=registration.email,
-                        name=registration.name,
-                        interface_language=registration.language,
-                        password=None,
-                        is_setup=True,
-                        timezone=registration.timezone,
-                        ip_address=registration.ip_address,
-                        check_normalized_email=True,
-                        session=db_session,
-                    )
-                    account.status = AccountStatus.ACTIVE
-                    account.initialized_at = naive_utc_now()
-                    db_session.commit()
-                except SeatsLimitExceededError as exc:
-                    db_session.rollback()
-                    raise OAuthSeatsLimitExceededError from exc
-                except Exception as exc:
-                    db_session.rollback()
-                    raise OAuthRegistrationError("Keycloak registration failed") from exc
-                return account.id
-
-    def provision_existing(self, account_id, account_claim):
+    def _provision_owner_workspace_if_required(self, account_id, account_claim):
         if hasattr(g, "keycloak_identity"):
             account_claim.ensure_owned()
-            _synchronize_workspace(account_id, g.keycloak_roles, session_factory)
+            _synchronize_workspace(account_id, g.keycloak_roles, self._keycloak_session_factory)
             account_claim.ensure_owned()
             return
-        return original_provision(account_id, account_claim)
+        return super()._provision_owner_workspace_if_required(account_id, account_claim)
 
-    original_provision = service._provision_owner_workspace_if_required
-    service._resolve_account = MethodType(resolve, service)
-    service.complete_authorization = MethodType(complete, service)
-    service._provision_owner_workspace_if_required = MethodType(provision_existing, service)
-    service._registration_policy = Policy()
-    service._registration = Registration()
-    service._workspace_policy = service._registration_policy
-    service._workspaces = Workspaces()
-    return service
+
+def build_oauth_service(*, session_factory, **kwargs):
+    """Build explicit Keycloak adapters before constructing the OAuth service."""
+    config = _settings()
+    if not (config.KEYCLOAK_OIDC_ISSUER_URL or config.KEYCLOAK_OIDC_CLIENT_ID):
+        return AccountOAuthService(**kwargs)
+    if not (
+        config.KEYCLOAK_OIDC_ISSUER_URL
+        and config.KEYCLOAK_OIDC_CLIENT_ID
+        and config.KEYCLOAK_OIDC_CLIENT_SECRET
+        and config.ENFORCE_SINGLE_WORKSPACE
+    ):
+        raise ValueError("Keycloak login requires complete OIDC settings and a single workspace")
+
+    account_claims = kwargs["account_claims"]
+    kwargs["providers"] = {
+        **kwargs["providers"],
+        "keycloak": KeycloakProviderGateway(
+            account_claims=account_claims, session_factory=session_factory
+        ),
+    }
+    policy = KeycloakOAuthPolicy(kwargs["registration_policy"])
+    kwargs["registration_policy"] = policy
+    kwargs["workspace_policy"] = policy
+    kwargs["registration"] = KeycloakRegistrationGateway(kwargs["registration"], session_factory)
+    kwargs["workspaces"] = KeycloakWorkspaceGateway(kwargs["workspaces"], session_factory)
+    return KeycloakAccountOAuthService(session_factory=session_factory, **kwargs)

@@ -26,12 +26,12 @@ def patch_api(root: Path) -> None:
     replace_once(
         extension,
         "    policy = DeploymentOAuthPolicyGateway(\n        billing_enabled=deployment_edition == DeploymentEdition.CLOUD,\n    )\n    return AccountOAuthService(\n",
-        "    policy = DeploymentOAuthPolicyGateway(\n        billing_enabled=deployment_edition == DeploymentEdition.CLOUD,\n    )\n    from neurwerk_sso import configure_oauth\n\n    return configure_oauth(AccountOAuthService(\n",
+        "    policy = DeploymentOAuthPolicyGateway(\n        billing_enabled=deployment_edition == DeploymentEdition.CLOUD,\n    )\n    from neurwerk_sso import build_oauth_service\n\n    return build_oauth_service(\n",
     )
     replace_once(
         extension,
         "        supported_languages=languages,\n        now=naive_utc_now,\n    )\n",
-        "        supported_languages=languages,\n        now=naive_utc_now,\n    ), database_client)\n",
+        "        supported_languages=languages,\n        now=naive_utc_now,\n        session_factory=database_client,\n    )\n",
     )
 
     controller = root / "controllers/console/auth/oauth.py"
@@ -74,7 +74,7 @@ def patch_web(root: Path) -> None:
         "        <span className=\"truncate leading-normal\">{t(($) => $.withGoogle, { ns: 'login' })}</span>\n"
         "      </a>\n",
         "      <a className={cn(buttonVariants(), 'w-full')} href={getOAuthLink('/oauth/login/keycloak')}>\n"
-        "        <span className=\"truncate leading-normal\">{t('withKeycloak', { ns: 'login' })}</span>\n"
+        "        <span className=\"truncate leading-normal\">{t(($) => $.withKeycloak, { ns: 'login' })}</span>\n"
         "      </a>\n",
     )
     replace_once(social, "import style from '../page.module.css'\n", "")

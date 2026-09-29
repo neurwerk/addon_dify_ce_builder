@@ -4,8 +4,10 @@ This image extends Dify Community Edition 1.17.1, under Dify's Open Source
 License (Apache 2.0 with additional conditions). Neurwerk's separate builder
 and tooling are MIT licensed; Dify-derived integration files retain Dify's terms.
 
-The pinned API image retains upstream Dify migrations, OAuth application service,
-and account management. `overlay/scripts/patch_dify.py` makes checked, narrow
+The pinned API image retains upstream Dify's OAuth application service and
+account management. Its existing `4474872b0ee6` concurrent-index migration
+overlay remains retry-safe; Dify's PostgreSQL 18 UUID fix is now upstream.
+`overlay/scripts/patch_dify.py` makes checked, narrow
 source changes to `configs/app_config.py`,
 `extensions/ext_application_services.py`, and
 `controllers/console/auth/oauth.py` to register the Keycloak OIDC provider,
