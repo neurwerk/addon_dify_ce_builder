@@ -28,30 +28,11 @@ jobs:
 
       - name: Lint and format
         run: |
-          uv run ruff check overlay/scripts scripts tests
-          uv run ruff format --check overlay/scripts scripts tests
+          uv run ruff check overlay/api/neurwerk_sso.py overlay/api/neurwerk_settings.py overlay/scripts scripts tests
+          uv run ruff format --check overlay/api/neurwerk_sso.py overlay/api/neurwerk_settings.py overlay/scripts scripts tests
 
       - name: Test
         run: uv run pytest
-
-      - name: Verify addon dependency lock
-        run: |
-          uv pip compile requirements/addon.in \
-            --output-file "${RUNNER_TEMP}/addon.txt" \
-            --python-version 3.12 \
-            --universal \
-            --generate-hashes \
-            --no-deps \
-            --only-binary :all: \
-            --no-annotate \
-            --custom-compile-command "uv pip compile requirements/addon.in --output-file requirements/addon.txt --python-version 3.12 --universal --generate-hashes --no-deps --only-binary :all: --no-annotate"
-          diff -u requirements/addon.txt "${RUNNER_TEMP}/addon.txt"
-          uv pip install \
-            --target "${RUNNER_TEMP}/addon" \
-            --no-deps \
-            --only-binary :all: \
-            --require-hashes \
-            --requirements requirements/addon.txt
 
       - name: Check shell scripts
         run: shellcheck deploy.sh scripts/verify-sources.sh

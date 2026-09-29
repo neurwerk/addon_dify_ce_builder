@@ -12,11 +12,14 @@ The canonical repository is
 ## What It Changes
 
 - Adds Keycloak OIDC authentication and sign-in UI integration.
-- Applies retry-safe and PostgreSQL 18-compatible Dify migration changes.
+- Uses Dify's upstream PostgreSQL 18-compatible migrations and OAuth service.
 - Adds single-workspace model-provider bootstrap behavior.
 - Bundles a checksum-pinned, unmodified Dify OpenAI-compatible plugin package.
 
-`overlay/api/` and `overlay/web/` mirror selected paths from upstream Dify. See
+`overlay/scripts/patch_dify.py` applies guarded changes to the pinned upstream
+API and Web sources. `overlay/api/neurwerk_settings.py` extends configuration,
+and `overlay/api/neurwerk_sso.py` integrates Keycloak with upstream's OAuth
+application service. See
 `NOTICE-CHANGES.md` for the change inventory and `THIRD_PARTY_NOTICES.md` for
 license and provenance details.
 
@@ -31,7 +34,7 @@ are pinned separately:
 - `DIFY_SOURCE_SHA256`: the SHA-256 of the GitHub source archive used by the Web
   build.
 - `NODE_IMAGE_DIGEST`: the authoritative OCI index digest for the Web build and
-  runtime base `docker.io/library/node:22.22.1-alpine`.
+  runtime base `docker.io/library/node:24.20.0-alpine`.
 - `ALPINE_IMAGE_DIGEST`: the authoritative OCI index digest for the Web source
   stage base `docker.io/library/alpine:3.21`.
 
@@ -42,10 +45,8 @@ Alpine inputs and rejects a source archive that does not match the pinned
 checksum. OCI labels distinguish the Web runtime base from its source-stage
 base and Dify source provenance.
 
-The API addon installs `requirements/addon.txt` with `--require-hashes`,
-`--only-binary`, and `--no-deps`. Its only addon is PyJWT; cryptography is
-provided by the immutable upstream API base. Regenerate the lock from
-`requirements/addon.in` using the command recorded in the generated file.
+The API overlay uses the PyJWT and cryptography versions already installed
+in the immutable Dify API base image.
 
 Verify the upstream tag, source archive, OCI index digests, and bundled plugin
 without building an image:
@@ -60,8 +61,8 @@ Install [uv](https://docs.astral.sh/uv/) and ShellCheck, then run:
 
 ```bash
 uv sync --locked --dev
-uv run ruff check overlay/scripts scripts tests
-uv run ruff format --check overlay/scripts scripts tests
+uv run ruff check overlay/api/neurwerk_sso.py overlay/api/neurwerk_settings.py overlay/scripts scripts tests
+uv run ruff format --check overlay/api/neurwerk_sso.py overlay/api/neurwerk_settings.py overlay/scripts scripts tests
 uv run pytest
 shellcheck deploy.sh scripts/verify-sources.sh
 ./scripts/verify-sources.sh
@@ -75,7 +76,7 @@ clean Git checkout, Docker with Buildx, Python 3, and GHCR credentials with
 the upstream version, for example:
 
 ```bash
-./deploy.sh 1.15.0-kc-v15
+./deploy.sh 1.17.1-kc-v1
 ```
 
 The prompts default to both API and Web images, `linux/amd64`, and registry
