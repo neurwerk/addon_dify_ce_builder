@@ -11,12 +11,12 @@ WEB_IMAGE="ghcr.io/neurwerk/addon-dify-ce-builder-web"
 API_REPOSITORY="neurwerk/addon-dify-ce-builder-api"
 WEB_REPOSITORY="neurwerk/addon-dify-ce-builder-web"
 SOURCE_URL="https://github.com/neurwerk/addon_dify_ce_builder"
-NODE_IMAGE="docker.io/library/node:22.22.1-alpine"
+NODE_IMAGE="docker.io/library/node:24.20.0-alpine"
 ALPINE_IMAGE="docker.io/library/alpine:3.21"
 
 usage() {
   printf 'Usage: %s <immutable-version>\n' "${0##*/}" >&2
-  printf 'Example: %s 1.15.0-kc-v15\n' "${0##*/}" >&2
+  printf 'Example: %s 1.17.1-kc-v1\n' "${0##*/}" >&2
 }
 
 read_value() {

@@ -63,7 +63,7 @@ def _configure_successful_run(monkeypatch):
     app_factory = ModuleType("app_factory")
     app_factory.create_flask_app_with_configs = lambda: app
     app_factory.initialize_extensions = lambda _: None
-    app_factory._auto_setup = lambda _: None
+    monkeypatch.setattr(setup_model_provider, "_auto_setup", lambda: None)
     monkeypatch.setitem(sys.modules, "app_factory", app_factory)
     monkeypatch.setenv("LLM_PROXY_API_KEY", "gateway-key")
     monkeypatch.setattr(
@@ -208,7 +208,7 @@ def test_bootstrap_lock_releases_when_mutation_raises(monkeypatch):
 
 
 def test_run_checks_state_and_mutates_only_while_locked(monkeypatch):
-    app_factory = _configure_successful_run(monkeypatch)
+    _configure_successful_run(monkeypatch)
     state = {"locked": False}
     stages = []
 
@@ -226,7 +226,7 @@ def test_run_checks_state_and_mutates_only_while_locked(monkeypatch):
         stages.append(stage)
         return result
 
-    app_factory._auto_setup = lambda _: record("auto-setup")
+    monkeypatch.setattr(setup_model_provider, "_auto_setup", lambda: record("auto-setup"))
     monkeypatch.setattr(setup_model_provider, "_bootstrap_lock", lock)
     monkeypatch.setattr(
         setup_model_provider,

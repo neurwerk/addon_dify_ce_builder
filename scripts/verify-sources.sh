@@ -75,6 +75,10 @@ if [[ "${actual_source_sha256}" != "${DIFY_SOURCE_SHA256}" ]]; then
   exit 1
 fi
 
+tar -xzf "${archive}" -C "${temporary_dir}"
+python3 "${REPO_DIR}/overlay/scripts/patch_dify.py" api "${temporary_dir}/dify-${DIFY_VERSION}/api"
+python3 "${REPO_DIR}/overlay/scripts/patch_dify.py" web "${temporary_dir}/dify-${DIFY_VERSION}/web"
+
 docker_hub_index_digest() {
   local repository="$1"
   local tag="$2"
@@ -133,7 +137,7 @@ if [[ "${actual_api_digest}" != "${DIFY_API_IMAGE_DIGEST}" ]]; then
   exit 1
 fi
 
-actual_node_digest="$(docker_hub_index_digest library/node 22.22.1-alpine)"
+actual_node_digest="$(docker_hub_index_digest library/node 24.20.0-alpine)"
 if [[ "${actual_node_digest}" != "${NODE_IMAGE_DIGEST}" ]]; then
   printf 'ERROR: Node image OCI index digest is %s, expected %s.\n' \
     "${actual_node_digest}" "${NODE_IMAGE_DIGEST}" >&2

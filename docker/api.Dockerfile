@@ -29,21 +29,15 @@ LABEL org.opencontainers.image.title="Neurwerk Dify CE API overlay" \
 
 USER root
 
-# The pinned Dify base supplies cryptography; install only the hash-locked addon.
-COPY requirements/addon.txt /tmp/addon-requirements.txt
-RUN pip install --no-cache-dir --no-deps --only-binary=:all: --require-hashes \
-  --requirement /tmp/addon-requirements.txt \
-  && rm /tmp/addon-requirements.txt
+# The upstream API image already contains PyJWT 2.13.0 and cryptography.
+# Do not downgrade either dependency in the overlay.
 
-# Copy our overlay patches on top of the pristine CE source
-# overlay/api/ mirrors the api/ tree inside the Dify source.
-COPY overlay/api/libs/oauth.py /app/api/libs/oauth.py
-COPY overlay/api/controllers/console/auth/oauth.py /app/api/controllers/console/auth/oauth.py
-COPY overlay/api/configs/feature/__init__.py /app/api/configs/feature/__init__.py
-COPY overlay/api/app_factory.py /app/api/app_factory.py
-COPY overlay/api/services/account_service_patch.py /app/api/services/account_service_patch.py
+# Patch the pinned upstream service instead of replacing its changed modules.
+COPY overlay/api/neurwerk_sso.py /app/api/neurwerk_sso.py
+COPY overlay/api/neurwerk_settings.py /app/api/neurwerk_settings.py
 COPY overlay/api/migrations/versions/2025_06_06_1424-4474872b0ee6_workflow_draft_varaibles_add_node_execution_id.py /app/api/migrations/versions/2025_06_06_1424-4474872b0ee6_workflow_draft_varaibles_add_node_execution_id.py
-COPY overlay/api/migrations/versions/2025_07_02_2332-1c9ba48be8e4_add_uuidv7_function_in_sql.py /app/api/migrations/versions/2025_07_02_2332-1c9ba48be8e4_add_uuidv7_function_in_sql.py
+COPY overlay/scripts/patch_dify.py /tmp/patch_dify.py
+RUN python /tmp/patch_dify.py api /app/api && rm /tmp/patch_dify.py
 COPY overlay/scripts/ /app/api/scripts/
 COPY overlay/plugins/ /app/api/plugins-offline/
 COPY LICENSE NOTICE-CHANGES.md THIRD_PARTY_NOTICES.md /licenses/neurwerk-addon-dify-ce-builder/
@@ -51,13 +45,12 @@ COPY LICENSES/ /licenses/neurwerk-addon-dify-ce-builder/LICENSES/
 
 # Fix ownership
 RUN chown -R dify:dify \
-  /app/api/libs/oauth.py \
+  /app/api/neurwerk_sso.py \
+  /app/api/neurwerk_settings.py \
+  /app/api/configs/app_config.py \
+  /app/api/extensions/ext_application_services.py \
   /app/api/controllers/console/auth/oauth.py \
-  /app/api/configs/feature/__init__.py \
-  /app/api/app_factory.py \
-  /app/api/services/account_service_patch.py \
   /app/api/migrations/versions/2025_06_06_1424-4474872b0ee6_workflow_draft_varaibles_add_node_execution_id.py \
-  /app/api/migrations/versions/2025_07_02_2332-1c9ba48be8e4_add_uuidv7_function_in_sql.py \
   /app/api/scripts/ \
   /app/api/plugins-offline/
 

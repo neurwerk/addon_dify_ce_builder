@@ -1,37 +1,38 @@
 # Third-Party Notices
 
-The root `LICENSE` applies only to Neurwerk-owned overlay additions, build
-tooling, tests, and documentation. It does not replace the terms of the
+The root `LICENSE` applies only to independently authored build tooling,
+tests, and documentation. It does not replace the terms of the
 third-party works described here.
 
 ## Dify Community Edition
 
 - Project: Dify Community Edition
 - Source: <https://github.com/langgenius/dify>
-- Version: `1.15.0`
-- Source revision: `3aa26fb6374bbd47e5469f7d7cc25f3e0075a60c`
-- Web source archive SHA-256: `18c9a711ac715855bd3d0882966b14143692a48269181c1dd7f7bfcc702a66ba`
+- Version: `1.17.1`
+- Source revision: `8387590ace4a094de812b7847fc6a4c3a27cd52b`
+- Web source archive SHA-256: `ac5df165d788770d09268091fd14690000f96e192b93290b7bb4c51709244ec0`
 - API base image:
-  `docker.io/langgenius/dify-api:1.15.0@sha256:c1712c50f27c9dfd31c5be77a9a03f30c464fc6983287eefd4a6a98376c70c24`
-- API base multi-platform digest: `sha256:c1712c50f27c9dfd31c5be77a9a03f30c464fc6983287eefd4a6a98376c70c24`
-- API base `linux/amd64` manifest: `sha256:9593d4197350678ecc6fb7c0f0416d9e64e5c349f0703d000d1498793eb34a5e`
-- API base `linux/arm64` manifest: `sha256:80f5f8fe2e11e2b123fc2dc0dab7421e17b17f87163e82dbbb126a269122976d`
+  `docker.io/langgenius/dify-api:1.17.1@sha256:ceede5b903afaa20348f7ad80ebf847379dc56d886a99b9ec6a08913dacd7732`
+- API base multi-platform digest: `sha256:ceede5b903afaa20348f7ad80ebf847379dc56d886a99b9ec6a08913dacd7732`
+- API base `linux/amd64` manifest: `sha256:04f435a2e366c73f1ccefe9e7fbdaa2ac6440bdcde268d5d20f19c3ba7e7dcdb`
+- API base `linux/arm64` manifest: `sha256:53fb08964da7a19d9b9f230a3b2945b6de55dc7b2ec570418e467defa809d82f`
 - Copyright: Copyright 2025 LangGenius, Inc.
 - License: Dify Open Source License, based on Apache License 2.0 with additional
   conditions; see `LICENSES/Dify-LICENSE`
 
-The files under `overlay/api/` and `overlay/web/` that modify or derive from
-Dify source remain subject to the Dify Open Source License. The Web image is
-built from the source revision and archive identified above. The API image
+The Dify-derived `overlay/api/neurwerk_sso.py`, `neurwerk_settings.py`, the
+retry-safe concurrent-index migration, and the modified upstream API and Web
+files remain under the Dify Open Source License. The Web image is built from
+the source revision and archive identified above. The API image
 extends the independently digest-pinned upstream image identified above. Dify
 did not contain a root `NOTICE` file at this revision.
 
 ## Web Build Base Images
 
 - Node build and runtime base:
-  `docker.io/library/node:22.22.1-alpine@sha256:8094c002d08262dba12645a3b4a15cd6cd627d30bc782f53229a2ec13ee22a00`
+  `docker.io/library/node:24.20.0-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf`
 - Node base OCI index digest:
-  `sha256:8094c002d08262dba12645a3b4a15cd6cd627d30bc782f53229a2ec13ee22a00`
+  `sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf`
 - Alpine source-stage base:
   `docker.io/library/alpine:3.21@sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507`
 - Alpine base OCI index digest:

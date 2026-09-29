@@ -494,9 +494,37 @@ def _ensure_plugins(tenant_id: str) -> None:
     )
 
 
+def _auto_setup() -> None:
+    """Provision the single break-glass owner on a fresh Dify installation."""
+    from configs import dify_config
+    from extensions.ext_database import db
+    from models.account import Tenant
+    from models.model import DifySetup
+    from services.account_service import RegisterService
+    from sqlalchemy import select
+
+    if db.session.scalar(select(DifySetup).limit(1)) or db.session.scalar(
+        select(Tenant.id).limit(1)
+    ):
+        return
+    email = dify_config.AUTO_SETUP_ADMIN_EMAIL
+    password = dify_config.AUTO_SETUP_ADMIN_PASSWORD
+    if not email or not password:
+        raise RuntimeError("Dify break-glass owner credentials are required")
+    name = dify_config.DEFAULT_WORKSPACE_NAME
+    RegisterService.setup(
+        email=email,
+        name=name,
+        password=password,
+        ip_address="127.0.0.1",
+        language="en-US",
+        session=db.session,
+    )
+
+
 def _run() -> None:
     """Run every required setup stage inside the Dify application context."""
-    from app_factory import create_flask_app_with_configs, initialize_extensions, _auto_setup
+    from app_factory import create_flask_app_with_configs, initialize_extensions
 
     app = create_flask_app_with_configs()
     with app.app_context():
@@ -505,7 +533,7 @@ def _run() -> None:
     with app.app_context():
         with _bootstrap_lock():
             # Recheck all state only after serializing concurrent pod startups.
-            _auto_setup(app)
+            _auto_setup()
             tenant = _resolve_tenant()
             _require_llm_proxy_api_key()
 

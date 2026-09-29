@@ -48,15 +48,18 @@ COPY --from=source /src/e2e/package.json /app/e2e/
 COPY --from=source /src/sdks/nodejs-client/package.json /app/sdks/nodejs-client/
 COPY --from=source /src/packages /app/packages
 RUN corepack install
-RUN VITE_GIT_HOOKS=0 pnpm install --frozen-lockfile
+RUN VITE_GIT_HOOKS=0 pnpm install --frozen-lockfile --ignore-scripts
 
 # Stage 4: build with the Neurwerk overlay applied.
 FROM base AS builder
+RUN apk add --no-cache python3
 WORKDIR /app
 COPY --from=packages /app/ .
 COPY --from=source /src/ .
 # The Keycloak SSO sign-in UI must be in place before `next build`.
-COPY overlay/web/ /app/web/
+COPY overlay/web/app/signin/components/sso-redirect.tsx /app/web/app/signin/components/sso-redirect.tsx
+COPY overlay/scripts/patch_dify.py /tmp/patch_dify.py
+RUN python3 /tmp/patch_dify.py web /app/web && rm /tmp/patch_dify.py
 WORKDIR /app/web
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 ENV pnpm_config_verify_deps_before_run=false
@@ -90,7 +93,6 @@ LABEL org.opencontainers.image.title="Neurwerk Dify CE Web overlay" \
   com.neurwerk.dify.web-source.sha256="${DIFY_SOURCE_SHA256}"
 
 ENV NODE_ENV=production
-ENV EDITION=SELF_HOSTED
 ENV DEPLOY_ENV=PRODUCTION
 ENV CONSOLE_API_URL=http://127.0.0.1:5001
 ENV APP_API_URL=http://127.0.0.1:5001
